@@ -26,7 +26,7 @@ public class WatchHistoryController {
     ) {
         return service.recordWatch(userId, movieId, watchTime);
     }
-
+    //GEt by id
     @GetMapping("/{userId}")
     public List<WatchHistory> getUserHistory(
             @PathVariable String userId
