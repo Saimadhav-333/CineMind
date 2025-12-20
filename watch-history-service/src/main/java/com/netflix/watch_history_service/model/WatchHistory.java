@@ -18,7 +18,9 @@ public class WatchHistory {
     private Long id;
 
     private String userId;
-    private Long movieId;
+    private Long tmdbMovieId;
+
+//    private Long movieId;
     private int watchTime; // seconds
     private LocalDateTime watchedAt;
 }

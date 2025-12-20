@@ -18,13 +18,15 @@ public class WatchHistoryController {
         this.service = service;
     }
 
+
     @PostMapping
     public WatchHistory recordWatch(
             @RequestParam String userId,
-            @RequestParam Long movieId,
+            @RequestParam Long tmdbMovieId,
             @RequestParam int watchTime
-    ) {
-        return service.recordWatch(userId, movieId, watchTime);
+    )
+    {
+        return service.recordWatch(userId, tmdbMovieId, watchTime);
     }
     //GEt by id
     @GetMapping("/{userId}")

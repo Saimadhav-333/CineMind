@@ -4,3 +4,11 @@ server:
 spring:
   application:
     name: recommendation-service
+
+
+
+services:
+  content:
+    base-url: http://localhost:8081
+  watch-history:
+    base-url: http://localhost:8082

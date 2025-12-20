@@ -18,12 +18,12 @@ public class WatchHistoryService {
 
     public WatchHistory recordWatch(
             String userId,
-            Long movieId,
+            Long tmdbMovieId,
             int watchTime
     ) {
         WatchHistory history = new WatchHistory();
         history.setUserId(userId);
-        history.setMovieId(movieId);
+        history.setTmdbMovieId(tmdbMovieId);
         history.setWatchTime(watchTime);
         history.setWatchedAt(LocalDateTime.now());
 
