@@ -1,6 +1,5 @@
 package com.netflix.recommendation_service.service;
 
-
 import com.netflix.recommendation_service.client.ContentServiceClient;
 import com.netflix.recommendation_service.client.WatchHistoryServiceClient;
 import com.netflix.recommendation_service.dto.MovieDto;
@@ -14,6 +13,8 @@ import java.util.stream.Collectors;
 @Service
 public class RecommendationService {
 
+    private static final int DEFAULT_LIMIT = 10;
+
     private final WatchHistoryServiceClient watchHistoryClient;
     private final ContentServiceClient contentServiceClient;
 
@@ -25,26 +26,34 @@ public class RecommendationService {
         this.contentServiceClient = contentServiceClient;
     }
 
-    public List<RecommendationDto> recommendMovies(String userId) {
+    public List<RecommendationDto> recommendMovies(
+            String userId,
+            int page,
+            int limit
+    ) {
+
+        int safeLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
+        int offset = Math.max(page, 0) * safeLimit;
 
         // 1️⃣ Fetch watch history
         List<WatchHistoryDto> watchHistory =
                 watchHistoryClient.getUserHistory(userId);
 
-        if (watchHistory.isEmpty()) {
-            return Collections.emptyList();
+        // 2️⃣ Cold-start
+        if (watchHistory == null || watchHistory.isEmpty()) {
+            return coldStartRecommendations(offset, safeLimit);
         }
 
-        // 2️⃣ Collect watched TMDB IDs (GLOBAL IDENTIFIER)
+        // 3️⃣ Collect watched TMDB IDs
         Set<Long> watchedTmdbIds = watchHistory.stream()
                 .map(WatchHistoryDto::getTmdbMovieId)
                 .collect(Collectors.toSet());
 
-        // 3️⃣ Fetch all movies
+        // 4️⃣ Fetch all movies
         List<MovieDto> allMovies =
                 contentServiceClient.getAllMovies();
 
-        // 4️⃣ Build genre frequency map (ONLY watched movies)
+        // 5️⃣ Build genre frequency map
         Map<String, Integer> genreCount = new HashMap<>();
 
         allMovies.stream()
@@ -59,10 +68,10 @@ public class RecommendationService {
                 });
 
         if (genreCount.isEmpty()) {
-            return Collections.emptyList();
+            return coldStartRecommendations(offset, safeLimit);
         }
 
-        // 5️⃣ Find top 2 genres
+        // 6️⃣ Pick top 2 genres
         List<String> topGenres = genreCount.entrySet()
                 .stream()
                 .sorted((a, b) -> b.getValue() - a.getValue())
@@ -70,14 +79,29 @@ public class RecommendationService {
                 .map(Map.Entry::getKey)
                 .toList();
 
-        // 6️⃣ Recommend unwatched movies matching top genres
+        // 7️⃣ Filter → paginate → map
         return allMovies.stream()
                 .filter(movie -> !watchedTmdbIds.contains(movie.getTmdbId()))
                 .filter(movie ->
                         movie.getGenres().stream()
                                 .anyMatch(topGenres::contains)
                 )
-                .limit(10)
+                .skip(offset)
+                .limit(safeLimit)
+                .map(this::toRecommendationDto)
+                .collect(Collectors.toList());
+    }
+
+    // 🔹 Cold-start with pagination
+    private List<RecommendationDto> coldStartRecommendations(
+            int offset,
+            int limit
+    ) {
+        List<MovieDto> allMovies = contentServiceClient.getAllMovies();
+
+        return allMovies.stream()
+                .skip(offset)
+                .limit(limit)
                 .map(this::toRecommendationDto)
                 .collect(Collectors.toList());
     }
@@ -85,7 +109,7 @@ public class RecommendationService {
     private RecommendationDto toRecommendationDto(MovieDto movie) {
 
         RecommendationDto dto = new RecommendationDto();
-        dto.setMovieId(movie.getTmdbId()); // expose TMDB ID
+        dto.setMovieId(movie.getTmdbId());
         dto.setTitle(movie.getTitle());
         dto.setGenres(movie.getGenres());
         dto.setPosterPath(movie.getPosterPath());
