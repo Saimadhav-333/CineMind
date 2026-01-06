@@ -24,7 +24,7 @@ public class ContentServiceClient {
 
     public List<MovieDto> getAllMovies() {
 
-        String url = contentServiceBaseUrl + "/movies";
+        String url = contentServiceBaseUrl + "/content/movies";
 
         MovieDto[] response =
                 restTemplate.getForObject(url, MovieDto[].class);

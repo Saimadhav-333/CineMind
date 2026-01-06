@@ -1,10 +1,14 @@
 package com.netflix.recommendation_service.service;
 
+
+import com.netflix.recommendation_service.client.AiRecommendationClient;
 import com.netflix.recommendation_service.client.ContentServiceClient;
 import com.netflix.recommendation_service.client.WatchHistoryServiceClient;
 import com.netflix.recommendation_service.dto.MovieDto;
 import com.netflix.recommendation_service.dto.RecommendationDto;
 import com.netflix.recommendation_service.dto.WatchHistoryDto;
+import com.netflix.recommendation_service.dto.ai.AiRecommendationRequest;
+import com.netflix.recommendation_service.dto.ai.AiRecommendationResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -17,13 +21,16 @@ public class RecommendationService {
 
     private final WatchHistoryServiceClient watchHistoryClient;
     private final ContentServiceClient contentServiceClient;
+    private final AiRecommendationClient aiClient;
 
     public RecommendationService(
             WatchHistoryServiceClient watchHistoryClient,
-            ContentServiceClient contentServiceClient
+            ContentServiceClient contentServiceClient,
+            AiRecommendationClient aiClient
     ) {
         this.watchHistoryClient = watchHistoryClient;
         this.contentServiceClient = contentServiceClient;
+        this.aiClient = aiClient;
     }
 
     public List<RecommendationDto> recommendMovies(
@@ -31,7 +38,6 @@ public class RecommendationService {
             int page,
             int limit
     ) {
-
         int safeLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
         int offset = Math.max(page, 0) * safeLimit;
 
@@ -39,81 +45,135 @@ public class RecommendationService {
         List<WatchHistoryDto> watchHistory =
                 watchHistoryClient.getUserHistory(userId);
 
-        // 2️⃣ Cold-start
-        if (watchHistory == null || watchHistory.isEmpty()) {
-            return coldStartRecommendations(offset, safeLimit);
-        }
-
-        // 3️⃣ Collect watched TMDB IDs
-        Set<Long> watchedTmdbIds = watchHistory.stream()
-                .map(WatchHistoryDto::getTmdbMovieId)
-                .collect(Collectors.toSet());
-
-        // 4️⃣ Fetch all movies
+        // 2️⃣ Fetch all movies
         List<MovieDto> allMovies =
                 contentServiceClient.getAllMovies();
 
-        // 5️⃣ Build genre frequency map
-        Map<String, Integer> genreCount = new HashMap<>();
-
-        allMovies.stream()
-                .filter(movie -> watchedTmdbIds.contains(movie.getTmdbId()))
-                .forEach(movie -> {
-                    for (String genre : movie.getGenres()) {
-                        genreCount.put(
-                                genre,
-                                genreCount.getOrDefault(genre, 0) + 1
-                        );
-                    }
-                });
-
-        if (genreCount.isEmpty()) {
-            return coldStartRecommendations(offset, safeLimit);
+        // 3️⃣ Cold-start fallback
+        if (watchHistory == null || watchHistory.isEmpty()) {
+            return paginate(
+                    allMovies.stream()
+                            .map(this::toRecommendationDto)
+                            .toList(),
+                    offset,
+                    safeLimit
+            );
         }
 
-        // 6️⃣ Pick top 2 genres
-        List<String> topGenres = genreCount.entrySet()
-                .stream()
-                .sorted((a, b) -> b.getValue() - a.getValue())
-                .limit(2)
-                .map(Map.Entry::getKey)
+        // 4️⃣ Build candidate movies (exclude watched)
+        Set<Long> watchedIds = watchHistory.stream()
+                .map(WatchHistoryDto::getTmdbMovieId)
+                .collect(Collectors.toSet());
+
+        List<MovieDto> candidates = allMovies.stream()
+                .filter(m -> !watchedIds.contains(m.getTmdbId()))
                 .toList();
 
-        // 7️⃣ Filter → paginate → map
-        return allMovies.stream()
-                .filter(movie -> !watchedTmdbIds.contains(movie.getTmdbId()))
-                .filter(movie ->
-                        movie.getGenres().stream()
-                                .anyMatch(topGenres::contains)
-                )
-                .skip(offset)
-                .limit(safeLimit)
-                .map(this::toRecommendationDto)
-                .collect(Collectors.toList());
+        // 5️⃣ Build AI request
+        AiRecommendationRequest aiRequest =
+                buildAiRequest(userId, watchHistory, candidates, safeLimit);
+
+        try {
+            // 6️⃣ Call Python AI
+            AiRecommendationResponse aiResponse =
+                    aiClient.getRecommendations(aiRequest);
+
+            if (aiResponse == null ||
+                    aiResponse.getRecommendedMovieIds() == null ||
+                    aiResponse.getRecommendedMovieIds().isEmpty()) {
+
+                return ruleBasedFallback(allMovies, watchedIds, offset, safeLimit);
+            }
+
+            // 7️⃣ Map ranked IDs → movie DTOs
+            Map<Long, MovieDto> movieMap = allMovies.stream()
+                    .collect(Collectors.toMap(MovieDto::getTmdbId, m -> m));
+
+            List<RecommendationDto> ranked =
+                    aiResponse.getRecommendedMovieIds().stream()
+                            .map(movieMap::get)
+                            .filter(Objects::nonNull)
+                            .map(this::toRecommendationDto)
+                            .toList();
+
+            return paginate(ranked, offset, safeLimit);
+
+        } catch (Exception ex) {
+            // 8️⃣ Fallback if AI fails
+            return ruleBasedFallback(allMovies, watchedIds, offset, safeLimit);
+        }
     }
 
-    // 🔹 Cold-start with pagination
-    private List<RecommendationDto> coldStartRecommendations(
+    /* ---------------- HELPER METHODS ---------------- */
+
+    private AiRecommendationRequest buildAiRequest(
+            String userId,
+            List<WatchHistoryDto> history,
+            List<MovieDto> candidates,
+            int limit
+    ) {
+        AiRecommendationRequest req = new AiRecommendationRequest();
+        req.setUserId(userId);
+        req.setLimit(limit);
+
+        req.setWatchHistory(
+                history.stream().map(h -> {
+                    AiRecommendationRequest.WatchHistoryItem i =
+                            new AiRecommendationRequest.WatchHistoryItem();
+                    i.setTmdbMovieId(h.getTmdbMovieId());
+                    i.setWatchTime(h.getWatchTime());
+                    return i;
+                }).toList()
+        );
+
+        req.setCandidateMovies(
+                candidates.stream().map(m -> {
+                    AiRecommendationRequest.CandidateMovie c =
+                            new AiRecommendationRequest.CandidateMovie();
+                    c.setTmdbId(m.getTmdbId());
+                    c.setGenres(m.getGenres());
+                    return c;
+                }).toList()
+        );
+
+        return req;
+    }
+
+    private List<RecommendationDto> ruleBasedFallback(
+            List<MovieDto> allMovies,
+            Set<Long> watchedIds,
             int offset,
             int limit
     ) {
-        List<MovieDto> allMovies = contentServiceClient.getAllMovies();
+        return paginate(
+                allMovies.stream()
+                        .filter(m -> !watchedIds.contains(m.getTmdbId()))
+                        .map(this::toRecommendationDto)
+                        .toList(),
+                offset,
+                limit
+        );
+    }
 
-        return allMovies.stream()
+    private List<RecommendationDto> paginate(
+            List<RecommendationDto> list,
+            int offset,
+            int limit
+    ) {
+        return list.stream()
                 .skip(offset)
                 .limit(limit)
-                .map(this::toRecommendationDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private RecommendationDto toRecommendationDto(MovieDto movie) {
-
         RecommendationDto dto = new RecommendationDto();
         dto.setMovieId(movie.getTmdbId());
         dto.setTitle(movie.getTitle());
         dto.setGenres(movie.getGenres());
         dto.setPosterPath(movie.getPosterPath());
-
         return dto;
     }
 }
+
+

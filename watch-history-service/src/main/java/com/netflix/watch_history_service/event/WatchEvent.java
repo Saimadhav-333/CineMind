@@ -3,12 +3,13 @@ package com.netflix.watch_history_service.event;
 
 
 import lombok.Data;
-
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 @Data
 public class WatchEvent {
 
+    private String eventId = UUID.randomUUID().toString();
     private String eventType;      // USER_WATCHED_MOVIE
     private String userId;
     private Long tmdbMovieId;

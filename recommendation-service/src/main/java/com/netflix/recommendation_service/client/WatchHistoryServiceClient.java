@@ -24,7 +24,7 @@ public class WatchHistoryServiceClient {
 
     public List<WatchHistoryDto> getUserHistory(String userId) {
 
-        String url = watchHistoryServiceBaseUrl + "/watch/" + userId;
+        String url = watchHistoryServiceBaseUrl + "/watch";
 
         WatchHistoryDto[] response =
                 restTemplate.getForObject(url, WatchHistoryDto[].class);

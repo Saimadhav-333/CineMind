@@ -17,12 +17,13 @@ public class RecommendationController {
         this.recommendationService = recommendationService;
     }
 
-    @GetMapping("/{userId}")
+    @GetMapping
     public List<RecommendationDto> getRecommendations(
-            @PathVariable String userId,
+            @RequestHeader("X-User-Id") String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int limit
     ) {
         return recommendationService.recommendMovies(userId, page, limit);
     }
 }
+
