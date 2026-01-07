@@ -11,9 +11,9 @@ import java.security.Key;
 @Component
 public class JwtUtil {
 
-    // MUST match AuthController secret
+    // ⚠ MUST MATCH auth-service secret
     private static final String SECRET =
-            "my-super-secret-key-for-jwt-signing-123456";
+            "super-secure-jwt-secret-key-32-characters-min";
 
     private static final Key KEY =
             Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));

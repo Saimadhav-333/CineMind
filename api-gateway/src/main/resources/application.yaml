@@ -8,6 +8,12 @@ spring:
   cloud:
     gateway:
       routes:
+
+        - id: auth-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/auth/**
+
         - id: content-service
           uri: http://localhost:8081
           predicates:
@@ -19,10 +25,15 @@ spring:
           uri: http://localhost:8082
           predicates:
             - Path=/watch/**
+
         - id: recommendation-service
           uri: http://localhost:8083
           predicates:
             - Path=/recommendations/**
 
-
-
+        - id: ai-recommendation-service
+          uri: http://localhost:8090
+          predicates:
+            - Path=/ai/**
+          filters:
+            - StripPrefix=1
