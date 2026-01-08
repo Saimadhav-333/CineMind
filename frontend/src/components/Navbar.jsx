@@ -14,7 +14,7 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-black/90 px-8 py-4 flex justify-between items-center">
       <div className="flex items-center gap-8">
         <Link to="/dashboard" className="text-red-600 text-3xl font-bold tracking-tighter">
-          NETFLIX
+          CINEMIND
         </Link>
         {token && (
           <div className="hidden md:flex gap-6 text-sm text-gray-300">
