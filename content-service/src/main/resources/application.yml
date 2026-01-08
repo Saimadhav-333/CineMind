@@ -2,21 +2,9 @@ server:
   port: 8081
 
 spring:
-  datasource:
-    url: jdbc:h2:mem:contentdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+  data:
+    mongodb:
+      uri: mongodb+srv://saimadhav204_db_user:5I6TPvndTlRgmAex@content-cluster.blxl7d0.mongodb.net/contentdb
 
 
 tmdb:

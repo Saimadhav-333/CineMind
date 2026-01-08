@@ -1,7 +1,6 @@
 package com.netflix.content_service.service;
 
 import com.netflix.content_service.dto.TmdbGenreResponse;
-import com.netflix.content_service.dto.TmdbMovie;
 import com.netflix.content_service.dto.TmdbMovieResponse;
 import com.netflix.content_service.model.Movie;
 import com.netflix.content_service.repository.MovieRepository;
@@ -35,7 +34,7 @@ public class TmdbSyncService {
         String movieUrl = baseUrl + "/movie/popular?api_key=" + apiKey;
         String genreUrl = baseUrl + "/genre/movie/list?api_key=" + apiKey;
 
-
+        // 1️⃣ Fetch genres
         TmdbGenreResponse genreResponse =
                 restTemplate.getForObject(genreUrl, TmdbGenreResponse.class);
 
@@ -46,13 +45,18 @@ public class TmdbSyncService {
                     .forEach(g -> genreMap.put(g.getId(), g.getName()));
         }
 
-        // 2️⃣ Fetch popular movies
+        // 2️⃣ Fetch movies
         TmdbMovieResponse movieResponse =
                 restTemplate.getForObject(movieUrl, TmdbMovieResponse.class);
 
         if (movieResponse == null || movieResponse.getResults() == null) return;
 
         movieResponse.getResults().forEach(tmdbMovie -> {
+
+            // ✅ prevent duplicates
+            if (movieRepository.existsByTmdbId(tmdbMovie.getId())) {
+                return;
+            }
 
             List<String> genres = tmdbMovie.getGenreIds()
                     .stream()
@@ -69,22 +73,4 @@ public class TmdbSyncService {
             movieRepository.save(movie);
         });
     }
-
-    private Map<Integer, String> fetchGenreMap() {
-
-        String url = baseUrl + "/genre/movie/list?api_key=" + apiKey;
-
-        TmdbGenreResponse response =
-                restTemplate.getForObject(url, TmdbGenreResponse.class);
-
-        Map<Integer, String> genreMap = new HashMap<>();
-
-        if (response != null && response.getGenres() != null) {
-            response.getGenres()
-                    .forEach(g -> genreMap.put(g.getId(), g.getName()));
-        }
-
-        return genreMap;
-    }
-
 }

@@ -1,6 +1,5 @@
 package com.netflix.recommendation_service.service;
 
-
 import com.netflix.recommendation_service.client.AiRecommendationClient;
 import com.netflix.recommendation_service.client.ContentServiceClient;
 import com.netflix.recommendation_service.client.WatchHistoryServiceClient;
@@ -18,6 +17,29 @@ import java.util.stream.Collectors;
 public class RecommendationService {
 
     private static final int DEFAULT_LIMIT = 10;
+
+    // 🔥 TMDB GENRE MAP (SOURCE OF TRUTH)
+    private static final Map<String, String> GENRE_MAP = Map.ofEntries(
+            Map.entry("28", "Action"),
+            Map.entry("12", "Adventure"),
+            Map.entry("16", "Animation"),
+            Map.entry("35", "Comedy"),
+            Map.entry("80", "Crime"),
+            Map.entry("99", "Documentary"),
+            Map.entry("18", "Drama"),
+            Map.entry("10751", "Family"),
+            Map.entry("14", "Fantasy"),
+            Map.entry("36", "History"),
+            Map.entry("27", "Horror"),
+            Map.entry("10402", "Music"),
+            Map.entry("9648", "Mystery"),
+            Map.entry("10749", "Romance"),
+            Map.entry("878", "Sci-Fi"),
+            Map.entry("10770", "TV Movie"),
+            Map.entry("53", "Thriller"),
+            Map.entry("10752", "War"),
+            Map.entry("37", "Western")
+    );
 
     private final WatchHistoryServiceClient watchHistoryClient;
     private final ContentServiceClient contentServiceClient;
@@ -74,7 +96,7 @@ public class RecommendationService {
                 buildAiRequest(userId, watchHistory, candidates, safeLimit);
 
         try {
-            // 6️⃣ Call Python AI
+            // 6️⃣ Call AI service
             AiRecommendationResponse aiResponse =
                     aiClient.getRecommendations(aiRequest);
 
@@ -99,7 +121,7 @@ public class RecommendationService {
             return paginate(ranked, offset, safeLimit);
 
         } catch (Exception ex) {
-            // 8️⃣ Fallback if AI fails
+            // 8️⃣ AI failure fallback
             return ruleBasedFallback(allMovies, watchedIds, offset, safeLimit);
         }
     }
@@ -131,7 +153,8 @@ public class RecommendationService {
                     AiRecommendationRequest.CandidateMovie c =
                             new AiRecommendationRequest.CandidateMovie();
                     c.setTmdbId(m.getTmdbId());
-                    c.setGenres(m.getGenres());
+                    // 🔥 FIX: ID → NAME
+                    c.setGenres(mapGenreIdsToNames(m.getGenres()));
                     return c;
                 }).toList()
         );
@@ -170,10 +193,17 @@ public class RecommendationService {
         RecommendationDto dto = new RecommendationDto();
         dto.setMovieId(movie.getTmdbId());
         dto.setTitle(movie.getTitle());
-        dto.setGenres(movie.getGenres());
+        // 🔥 FIX: ID → NAME
+        dto.setGenres(mapGenreIdsToNames(movie.getGenres()));
         dto.setPosterPath(movie.getPosterPath());
         return dto;
     }
+
+    private List<String> mapGenreIdsToNames(List<String> genreIds) {
+        if (genreIds == null) return List.of();
+
+        return genreIds.stream()
+                .map(id -> GENRE_MAP.getOrDefault(id, "UNKNOWN"))
+                .toList();
+    }
 }
-
-

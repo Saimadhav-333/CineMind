@@ -1,6 +1,5 @@
 package com.netflix.content_service.service;
 
-
 import com.netflix.content_service.model.Movie;
 import com.netflix.content_service.repository.MovieRepository;
 import org.springframework.stereotype.Service;
@@ -24,4 +23,3 @@ public class MovieService {
         return movieRepository.findAll();
     }
 }
-

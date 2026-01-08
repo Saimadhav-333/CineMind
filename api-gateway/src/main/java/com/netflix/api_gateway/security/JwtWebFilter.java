@@ -1,6 +1,7 @@
 package com.netflix.api_gateway.security;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -22,14 +23,20 @@ public class JwtWebFilter implements WebFilter {
 
         String path = exchange.getRequest().getURI().getPath();
 
-        // ✅ 1️⃣ PUBLIC ROUTES (NO TOKEN REQUIRED)
-        if (path.startsWith("/auth")
-                || path.startsWith("/content")
-                || path.startsWith("/movies")) {
+        // ✅ 1️⃣ ALLOW CORS PREFLIGHT REQUESTS
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }
 
-        // ✅ 2️⃣ PROTECTED ROUTES
+        // ✅ 2️⃣ PUBLIC ROUTES (NO JWT REQUIRED)
+        if (path.startsWith("/auth")
+                || path.startsWith("/content")
+                || path.startsWith("/movies")
+                || path.startsWith("/admin")) {
+            return chain.filter(exchange);
+        }
+
+        // ✅ 3️⃣ PROTECTED ROUTES → REQUIRE JWT
         String authHeader = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
@@ -42,11 +49,11 @@ public class JwtWebFilter implements WebFilter {
         String token = authHeader.substring(7);
 
         try {
-            // ✅ 3️⃣ Validate token
+            // ✅ 4️⃣ VALIDATE TOKEN
             String userId = jwtUtil.validateAndExtractUserId(token);
             System.out.println("✅ JWT VALID — userId = " + userId);
 
-            // ✅ 4️⃣ Inject X-User-Id header
+            // ✅ 5️⃣ ADD X-User-Id HEADER
             ServerWebExchange mutatedExchange = exchange.mutate()
                     .request(
                             exchange.getRequest()
