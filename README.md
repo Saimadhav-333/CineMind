@@ -20,8 +20,6 @@ This project is designed to reflect **real-world backend engineering**, **system
 
 ---
 
-
-
 ## 🧠 System Architecture
 
 ```mermaid
@@ -48,10 +46,10 @@ flowchart TB
     KAFKA --> WATCH
 
     RECO --> AI
-
-
+```
 
 ---
+
 ## 🛠️ Tech Stack
 
 ### Backend
@@ -106,10 +104,13 @@ flowchart TB
 - PostgreSQL
 
 **Endpoints**
+```
 POST /auth/register
 POST /auth/login
+```
 
 ---
+
 ### 2️⃣ API Gateway (Port: 8080)
 **Responsibilities**
 - Single entry point
@@ -132,9 +133,10 @@ POST /auth/login
 - Serve movie catalog
 
 **Endpoints**
+```
 GET /content/movies
 POST /content/admin/sync-movies
-
+```
 
 ---
 
@@ -151,8 +153,9 @@ POST /content/admin/sync-movies
 - Eventual consistency
 
 **Endpoints**
+```
 POST /watch
-
+```
 
 ---
 
@@ -166,9 +169,9 @@ POST /watch
 - Rule-based fallback if AI fails
 
 **Endpoints**
+```
 GET /recommendations
-
-
+```
 
 ---
 
@@ -185,10 +188,10 @@ GET /recommendations
 - Deterministic math-based scoring
 
 **Endpoints**
+```
 POST /recommend
 GET /health
-
-
+```
 
 ---
 
@@ -254,9 +257,20 @@ GET /health
 ```bash
 npm install
 npm run dev
-http://localhost:5173
-http://localhost:8080
+```
 
+**Access**
+- Frontend: `http://localhost:5173`
+- API Gateway: `http://localhost:8080`
 
+---
 
+## 📝 License
 
+This project is open source and available for educational purposes.
+
+---
+
+## 👨‍💻 Author
+
+Built with ❤️ to demonstrate production-grade microservices architecture.
