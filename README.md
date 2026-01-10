@@ -22,31 +22,33 @@ This project is designed to reflect **real-world backend engineering**, **system
 
 
 
-
 ## 🧠 System Architecture
 
-┌───────────────┐
-│ Frontend │ React + Vite + Tailwind
-└───────┬───────┘
-│
-▼
-┌───────────────────────┐
-│ API Gateway │ Spring Cloud Gateway
-│ - JWT Validation │
-│ - CORS Handling │
-│ - X-User-Id Inject │
-└─────────┬─────────────┘
-│
-────────────────────────────────────────────────────────────
-│ │ │ │ │
-▼ ▼ ▼ ▼ ▼
-Auth Content Watch History Recommendation AI Service
-Svc Service Service Service (Python)
-8084 8081 8082 8083 8090
-│ │
-│ ▼
-│ Kafka
-│ (Async Event Stream)
+```mermaid
+flowchart TB
+    FE[Frontend<br/>React + Vite + Tailwind]
+
+    GW[API Gateway<br/>Spring Cloud Gateway<br/>JWT + CORS<br/>X-User-Id Injection]
+
+    AUTH[Auth Service<br/>8084<br/>PostgreSQL]
+    CONTENT[Content Service<br/>8081]
+    WATCH[Watch History Service<br/>8082]
+    RECO[Recommendation Service<br/>8083]
+    AI[AI Recommendation Service<br/>8090<br/>FastAPI + Python]
+    KAFKA[(Kafka<br/>Async Event Stream)]
+
+    FE --> GW
+
+    GW --> AUTH
+    GW --> CONTENT
+    GW --> WATCH
+    GW --> RECO
+
+    WATCH --> KAFKA
+    KAFKA --> WATCH
+
+    RECO --> AI
+
 
 
 ---
