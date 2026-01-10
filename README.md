@@ -38,15 +38,15 @@ This project is designed to reflect **real-world backend engineering**, **system
 └─────────┬─────────────┘
 │
 ────────────────────────────────────────────────────────────
-│         │          │                 │             │
-▼         ▼          ▼                 ▼             ▼
-Auth   Content   WatchHistory    Recommendation   AI Service
-Service    Service    Service            Service      (Python)
-8084     8081         8082             8083          8090
-                      │
-                      ▼
-                    Kafka
-            (Async Event Stream)
+│ │ │ │ │
+▼ ▼ ▼ ▼ ▼
+Auth Content Watch History Recommendation AI Service
+Svc Service Service Service (Python)
+8084 8081 8082 8083 8090
+│ │
+│ ▼
+│ Kafka
+│ (Async Event Stream)
 
 
 ---
